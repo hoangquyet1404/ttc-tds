@@ -747,12 +747,21 @@ def process_follow_job(job, interactor: FacebookInteractor, cookies, settings):
     target_id = job['idpost']
     
     if not target_id:
+        print(f"{_Red_}Job follow không hợp lệ - thiếu target ID{_Reset_}")
         return (None, 2)
     
     try:
+        # print(f"{_Cyan_}Đang thực hiện follow ID: {target_id}...{_Reset_}")
         follow_success = interactor.follow_user(target_id)
-        time.sleep(random.uniform(2, 4))
         
+        if not follow_success:
+            print(f"{_Red_}Không thể follow user {target_id}{_Reset_}")
+            return (None, 2)
+            
+        # print(f"{_Cyan_}Follow thành công, đang chờ 2-4s trước khi nhận xu...{_Reset_}")
+        # time.sleep(random.uniform(2, 4))
+        
+        # print(f"{_Cyan_}Đang nhận xu cho job follow...{_Reset_}")
         result = claim_follow_reward(cookies, target_id)
         
         if result and ('xu' in str(result).lower() or result.get('status') == 'success'):
@@ -763,10 +772,12 @@ def process_follow_job(job, interactor: FacebookInteractor, cookies, settings):
             return (result, delay)
             
         if not follow_success and not result:
-            print(f"{_Red_}[{datetime.now().strftime('%H:%M:%S')}] {interactor.account.name}|FOLLOW|normal|{target_id}|Không thể theo dõi{_Reset_}")
+            print(f"{_Red_}[{datetime.now().strftime('%H:%M:%S')}] {interactor.account.name}|FOLLOW|normal|{target_id}|Không thể theo dõi hoặc nhận xu{_Reset_}")
             
     except Exception as e:
-        print(f"{_Red_}Lỗi khi thực hiện follow: {str(e)}{_Reset_}")
+        print(f"{_Red_}Lỗi khi thực hiện follow {target_id}: {str(e)}{_Reset_}")
+        if hasattr(e, 'response'):
+            print(f"{_Red_}Response từ server: {e.response.text if hasattr(e, 'text') else 'Không có response'}{_Reset_}")
     
     return (None, 2)
 
