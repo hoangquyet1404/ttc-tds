@@ -105,7 +105,7 @@ def show_user_info():
     reset_color = '\033[0m'
     
     print(f"{info_colors['prompt']}~[●] ➤ {info_colors['label']}Admin: {info_colors['name']}Trần Văn Quang Huy{reset_color}")
-    print(f"{info_colors['prompt']}~[●] ➤ {info_colors['label']}Website Bán Sub Giá Rẻ: {info_colors['website']}https://trumsubvip.site{reset_color}")
+    print(f"{info_colors['prompt']}~[●] ➤ {info_colors['label']}Website Bán Sub Giá Rẻ: {info_colors['website']}trumsubvip.site{reset_color}")
     print(f"{info_colors['prompt']}~[●] ➤ {info_colors['label']}Zalo Admin: {info_colors['phone']}0372065607{reset_color}")
     print(f"{info_colors['prompt']}~[●] ➤ {info_colors['label']}Box Zalo Thông Báo: {info_colors['link']}https://zalo.me/g/dqacsy523{reset_color}")
     print()
