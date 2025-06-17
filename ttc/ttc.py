@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
@@ -359,10 +360,8 @@ class FacebookInteractor:
         
         try:
             response = requests.post("https://www.facebook.com/api/graphql/", headers=headers, data=data, timeout=15)
-            is_ok, resp_json = self._handle_response(response, "share")
-            if not is_ok:
-                return False
-            return resp_json and resp_json.get('data', {}).get('story_create') is not None
+            is_ok, _ = self._handle_response(response, "share")
+            return is_ok and response.status_code == 200  # Success if status is 200
         except StopToolException:
             raise
         except requests.RequestException:
@@ -428,10 +427,7 @@ def process_job(job_type, job, ttc_cookies, interactor):
         return 'LOGGED_OUT'
 
     if fb_action_succeeded:
-        if job_type == "share":
-            time.sleep(2)
-        else:
-            time.sleep(random.uniform(2, 4))
+        time.sleep(2)  # Always wait 2 seconds for all job types
         result = claim_function(*claim_args)
 
         if result and 'mess' in result:
@@ -451,6 +447,7 @@ def process_job(job_type, job, ttc_cookies, interactor):
 # ==============================================================================
 # SECTION: UI & MAIN EXECUTION
 # ==============================================================================
+
 def get_random_color_scheme():
     """Tạo bộ màu ngẫu nhiên hài hòa"""
     color_schemes = [
@@ -466,6 +463,7 @@ def get_random_color_scheme():
         ['\033[38;5;30m', '\033[38;5;36m', '\033[38;5;42m', '\033[38;5;48m']
     ]
     return random.choice(color_schemes)
+
 def print_banner():
     global CURRENT_COLOR_SCHEME
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -519,8 +517,13 @@ def setup_settings():
             save_settings(s)
             print(f"{CURRENT_COLOR_SCHEME[1]}Đã lưu cấu hình.{_Reset_}")
     except ValueError:
-        print(f"{CURRENT_COLOR_SCHEME[0]}Nhập không hợp lệ, thoát.{_Reset_}")
-        exit()
+        print(f"{CURRENT_COLOR_SCHEME[0]}Nhập không hợp lệ, sử dụng cấu hình mặc định.{_Reset_}")
+        s = {
+            'DELAY_BETWEEN_JOBS': (5, 10),
+            'JOBS_BEFORE_BREAK': 20,
+            'BREAK_TIME': 300,
+            'JOBS_BEFORE_SWITCH': 15
+        }
     return s
 
 def load_ttc_accounts():
@@ -653,18 +656,18 @@ def main():
             print(f"{CURRENT_COLOR_SCHEME[1]}Đã lưu tài khoản TTC {username} vào {ACCOUNT_FILE}{_Reset_}")
             ttc_accounts_to_use = [(username, password, ttc_cookies)]
         else:
-            print(f"{CURRENT_COLOR_SCHEME[0]}Đăng nhập TTC thất bại. Thoát tool.{_Reset_}")
-            return
+            print(f"{CURRENT_COLOR_SCHEME[0]}Đăng nhập TTC thất bại. Vui lòng thử lại sau.{_Reset_}")
+            return  # Exit only if TTC login fails, as TTC account is critical
     
     elif account_source == '2':
         saved_accounts = load_ttc_accounts()
         if not saved_accounts:
-            print(f"{CURRENT_COLOR_SCHEME[0]}Không tìm thấy tài khoản TTC đã lưu trong {ACCOUNT_FILE}. Thoát tool.{_Reset_}")
-            return
+            print(f"{CURRENT_COLOR_SCHEME[0]}Không tìm thấy tài khoản TTC đã lưu trong {ACCOUNT_FILE}. Vui lòng nhập tài khoản mới.{_Reset_}")
+            return  # Exit if no TTC accounts are available
         
         selected_accounts = select_ttc_accounts(saved_accounts)
         if not selected_accounts:
-            print(f"{CURRENT_COLOR_SCHEME[0]}Không có tài khoản TTC nào được chọn. Thoát tool.{_Reset_}")
+            print(f"{CURRENT_COLOR_SCHEME[0]}Không có tài khoản TTC nào được chọn. Vui lòng thử lại.{_Reset_}")
             return
         
         print_section("Đang kiểm tra các tài khoản TTC đã chọn")
@@ -678,37 +681,52 @@ def main():
                 print(f"\r{CURRENT_COLOR_SCHEME[0]} -> Tài khoản {username}: Đăng nhập thất bại{_Reset_}")
 
     if not ttc_accounts_to_use:
-        print(f"{CURRENT_COLOR_SCHEME[0]}Không có tài khoản TTC nào hợp lệ để chạy. Thoát tool.{_Reset_}")
+        print(f"{CURRENT_COLOR_SCHEME[0]}Không có tài khoản TTC nào hợp lệ để chạy. Vui lòng thử lại sau.{_Reset_}")
         return
 
-    raw_cookies = get_fb_cookies_menu()
-    if not raw_cookies:
-        print(f"{CURRENT_COLOR_SCHEME[0]}Không có cookie Facebook nào được cung cấp. Thoát tool.{_Reset_}")
-        return
+    while True:  # Loop to keep tool running even if no valid FB accounts
+        raw_cookies = get_fb_cookies_menu()
+        if not raw_cookies:
+            retry = input(f"{CURRENT_COLOR_SCHEME[0]}Không có cookie Facebook nào được cung cấp. Thử lại? (y/n): {_Reset_}").lower()
+            if retry != 'y':
+                print(f"{CURRENT_COLOR_SCHEME[0]}Không có cookie để chạy. Thoát tool.{_Reset_}")
+                return
+            continue
 
-    print_section("Đang kiểm tra các tài khoản Facebook")
-    all_fb_accounts = []
-    for i, cookie_str in enumerate(raw_cookies):
-        print(f"Đang kiểm tra cookie #{i+1}...", end='')
-        fb_account = FacebookAccount(cookie_str)
-        if fb_account.is_valid:
-            all_fb_accounts.append(fb_account)
-            print(f"\r{CURRENT_COLOR_SCHEME[1]} -> Cookie #{i+1}: Hợp lệ - {fb_account.name}{_Reset_}")
-        else:
-            print(f"\r{CURRENT_COLOR_SCHEME[0]} -> Cookie #{i+1}: KHÔNG HỢP LỆ (Die hoặc Logout){_Reset_}")
+        print_section("Đang kiểm tra các tài khoản Facebook")
+        all_fb_accounts = []
+        for i, cookie_str in enumerate(raw_cookies):
+            print(f"Đang kiểm tra cookie #{i+1}...", end='')
+            fb_account = FacebookAccount(cookie_str)
+            if fb_account.is_valid:
+                all_fb_accounts.append(fb_account)
+                print(f"\r{CURRENT_COLOR_SCHEME[1]} -> Cookie #{i+1}: Hợp lệ - {fb_account.name}{_Reset_}")
+            else:
+                print(f"\r{CURRENT_COLOR_SCHEME[0]} -> Cookie #{i+1}: KHÔNG HỢP LỆ (Die hoặc Logout). Bỏ qua cookie này.{_Reset_}")
 
-    if not all_fb_accounts:
-        print(f"{CURRENT_COLOR_SCHEME[0]}Không có tài khoản Facebook nào hợp lệ để chạy.{_Reset_}")
-        return
+        if not all_fb_accounts:
+            print(f"{CURRENT_COLOR_SCHEME[0]}Cảnh báo: Không có tài khoản Facebook nào hợp lệ. Vui lòng cung cấp cookie mới.{_Reset_}")
+            retry = input(f"{CURRENT_COLOR_SCHEME[2]}Thử lại với cookie mới? (y/n): {_Reset_}").lower()
+            if retry != 'y':
+                print(f"{CURRENT_COLOR_SCHEME[0]}Không có tài khoản Facebook hợp lệ để chạy. Thoát tool.{_Reset_}")
+                return
+            continue
 
-    accounts_to_run = select_accounts_to_run(all_fb_accounts)
-    if not accounts_to_run:
-        print(f"{CURRENT_COLOR_SCHEME[0]}Không có tài khoản Facebook nào được chọn để chạy. Thoát tool.{_Reset_}")
-        return
-    print(f"{CURRENT_COLOR_SCHEME[1]}Sẵn sàng chạy với {len(accounts_to_run)} tài khoản Facebook.{_Reset_}")
+        accounts_to_run = select_accounts_to_run(all_fb_accounts)
+        if not accounts_to_run:
+            print(f"{CURRENT_COLOR_SCHEME[0]}Cảnh báo: Không có tài khoản Facebook nào được chọn.{_Reset_}")
+            retry = input(f"{CURRENT_COLOR_SCHEME[2]}Thử lại với cookie mới? (y/n): {_Reset_}").lower()
+            if retry != 'y':
+                print(f"{CURRENT_COLOR_SCHEME[0]}Không có tài khoản được chọn để chạy. Thoát tool.{_Reset_}")
+                return
+            continue
+
+        print(f"{CURRENT_COLOR_SCHEME[1]}Sẵn sàng chạy với {len(accounts_to_run)} tài khoản Facebook.{_Reset_}")
+        break  # Exit loop once valid accounts are selected
 
     global settings
     settings = setup_settings()
+
     selected_job_types = select_job_types()
     print(f"{CURRENT_COLOR_SCHEME[1]}Các loại job sẽ chạy: {', '.join(s.upper() for s in selected_job_types)}{_Reset_}")
 
@@ -776,7 +794,7 @@ def main():
                             raise
                         
                         if status == 'LOGGED_OUT':
-                            print(f"{CURRENT_COLOR_SCHEME[0]}Đã loại bỏ TK {current_account.name}. Còn lại: {len(accounts_to_run)} TK{_Reset_}")
+                            print(f"{CURRENT_COLOR_SCHEME[0]}Tài khoản {current_account.name} đã bị logout. Bỏ qua và tiếp tục với tài khoản khác...{_Reset_}")
                             accounts_to_run.pop(current_account_index)
                             current_account_index -= 1
                             break
@@ -802,6 +820,19 @@ def main():
                 print(f"\n{CURRENT_COLOR_SCHEME[2]}Không tìm thấy job nào. Chờ 30 giây rồi thử lại...{_Reset_}")
                 time.sleep(30)
             ttc_account_index += 1
+
+            # If no valid FB accounts remain, prompt to re-enter cookies
+            if not accounts_to_run:
+                print(f"{CURRENT_COLOR_SCHEME[0]}Cảnh báo: Tất cả tài khoản Facebook đã bị logout hoặc không hợp lệ.{_Reset_}")
+                retry = input(f"{CURRENT_COLOR_SCHEME[2]}Thử lại với cookie mới? (y/n): {_Reset_}").lower()
+                if retry == 'y':
+                    current_account_index = 0
+                    counters = {'per_account': {}, 'since_break': 0}
+                    blocked_jobs_per_account = {}
+                    break  # Break inner loop to re-enter cookies
+                else:
+                    print(f"{CURRENT_COLOR_SCHEME[0]}Không có tài khoản Facebook để tiếp tục. Thoát tool.{_Reset_}")
+                    return
 
     except StopToolException:
         print(f"\n{CURRENT_COLOR_SCHEME[0]}{_Bold_}Tool đã dừng do lỗi tài khoản. Tạm biệt!{_Reset_}")
