@@ -258,7 +258,12 @@ class FacebookInteractor:
             is_ok, resp_json = self._handle_response(response, "reaction")
             if not is_ok:
                 return False
-            return resp_json is None or 'errors' not in resp_json
+            # Check for successful reaction response structure
+            if resp_json and 'data' in resp_json and 'feedback_react' in resp_json['data']:
+                feedback = resp_json['data']['feedback_react'].get('feedback')
+                if feedback and 'id' in feedback and 'i18n_reaction_count' in feedback:
+                    return True
+            return False
         except StopToolException:
             raise
         except requests.RequestException:
@@ -361,7 +366,7 @@ class FacebookInteractor:
         try:
             response = requests.post("https://www.facebook.com/api/graphql/", headers=headers, data=data, timeout=15)
             is_ok, _ = self._handle_response(response, "share")
-            return is_ok and response.status_code == 200  # Success if status is 200
+            return response.status_code == 200  # Success if status is 200
         except StopToolException:
             raise
         except requests.RequestException:
@@ -427,7 +432,7 @@ def process_job(job_type, job, ttc_cookies, interactor):
         return 'LOGGED_OUT'
 
     if fb_action_succeeded:
-        time.sleep(2)  # Always wait 2 seconds for all job types
+        time.sleep(2)  # Wait 2 seconds for all job types
         result = claim_function(*claim_args)
 
         if result and 'mess' in result:
