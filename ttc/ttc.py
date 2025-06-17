@@ -74,7 +74,6 @@ def _fetch_jobs_from_endpoint(url, cookies):
         if response.text in ["0", "[]", ""]:
             return []
         jobs = response.json()
-        # Filter out invalid jobs (non-dictionaries)
         valid_jobs = [job for job in jobs if isinstance(job, dict)]
         return valid_jobs
     except (requests.RequestException, json.JSONDecodeError) as e:
@@ -148,9 +147,11 @@ class FacebookAccount:
             homepage_response.raise_for_status()
             homepage_text = homepage_response.text
 
+            # Check for explicit login page indicators
             if 'login.php' in str(homepage_response.url) or "Đăng nhập Facebook" in homepage_text:
                 return False
 
+            # Extract fb_dtsg
             fb_dtsg_match = re.search(r'"DTSGInitialData",\[\],{"token":"(.*?)"', homepage_text) or \
                             re.search(r'name="fb_dtsg" value="(.*?)"', homepage_text) or \
                             re.search(r'"async_get_token":"(.*?)"', homepage_text)
@@ -158,16 +159,26 @@ class FacebookAccount:
                 return False
             self.fb_dtsg = fb_dtsg_match.group(1)
 
+            # Extract user ID from response to confirm logged-in state
+            user_id_match = re.search(r'"USER_ID":"(\d+)"', homepage_text)
+            if not user_id_match or user_id_match.group(1) != self.uid:
+                return False
+
+            # Extract name
             name_match = re.search(r'"NAME":"(.*?)"', homepage_text)
             if name_match:
                 self.name = name_match.group(1).encode('latin1').decode('unicode-escape')
             else:
                 soup = BeautifulSoup(homepage_text, 'html.parser')
                 title_tag = soup.find('title')
-                if title_tag and title_tag.string not in ["Facebook", "Log in to Facebook"]:
-                    self.name = title_tag.string
-                else:
+                if not title_tag or title_tag.string in ["Facebook", "Log in to Facebook", ""]:
                     return False
+                self.name = title_tag.string
+
+            # Ensure name is non-empty and not generic
+            if not self.name or self.name.strip() in ["Facebook", "Log in to Facebook"]:
+                return False
+
             return True
         except (requests.RequestException, AttributeError):
             return False
@@ -730,7 +741,6 @@ def main():
             if counters['per_account'].get(current_account.uid, 0) >= settings['JOBS_BEFORE_SWITCH']:
                 print(f"\n{CURRENT_COLOR_SCHEME[3]}Tài khoản {current_account.name} đã đạt giới hạn. Chuyển...{_Reset_}")
                 counters['per_account'][current_account.uid] = 0
-                # Do NOT clear blocked_jobs to prevent retrying blocked job types
                 current_account_index = (current_account_index + 1) % len(accounts_to_run)
                 continue
 
