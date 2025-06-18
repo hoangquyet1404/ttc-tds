@@ -11,6 +11,7 @@ import re
 import uuid
 import random
 from bs4 import BeautifulSoup
+import sys
 
 # --- ANSI Color Codes for Terminal Output ---
 _Reset_ = '\033[0m'
@@ -601,7 +602,13 @@ def process_job(job_type, job, ttc_cookies, interactor, ttc_username):
                     xu = extract_xu_from_message(result.get('mess'))
                     print_with_prefix(f"[{now}] {fb_name}|{action_details}|Thành công: +{xu} xu", message_type="success")
                     delay = random.uniform(*settings['DELAY_BETWEEN_JOBS'])
-                    print_with_prefix(f"Chờ {delay:.2f}s trước khi chạy job tiếp theo...", message_type="info")
+                    for i in range(int(delay), -1, -1):
+                        sys.stdout.write(f"\r Đợi {i}s để chạy job tiếp theo...   ")
+                        sys.stdout.flush()
+                        time.sleep(1)
+                    sys.stdout.write('\r' + ' ' * 50 + '\r')
+                    sys.stdout.flush()
+                    #print_with_prefix("Tiếp tục gửi request tiếp theo...", message_type="info")
                     time.sleep(delay)
                     return 'SUCCESS'
                 else:
