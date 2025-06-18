@@ -646,7 +646,7 @@ def print_banner():
 {colors[1]}██║  ██║      {colors[0]}   ██║   ╚██████╔╝╚██████╔╝███████╗
 {colors[0]}╚═╝  ╚═╝         ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝{_Reset_}
 """)
-    print_with_prefix(f"Copyright © H-Tool 2025 | Version 5.2 (Final)\n", message_type="info")
+    print_with_prefix(f"Copyright © H-Tool 2025 | Version 4.0\n", message_type="info")
 
 def print_section(title):
     print_with_prefix(f"\n{_Bold_}>> {title.upper()} <<", message_type="info")
@@ -811,7 +811,7 @@ def select_accounts_to_run(valid_accounts, ttc_cookies, ttc_username):
             return []
 
     for acc in selected_accounts:
-        print_with_prefix(f"Đang đặt nick chính cho {acc.name} (UID: {acc.uid})...", message_type="info")
+        # print_with_prefix(f"Đang đặt nick chính cho {acc.name} (UID: {acc.uid})...", message_type="info")
         time.sleep(2)
         if not set_main_account(ttc_cookies, acc.uid):
             print_with_prefix(f"Không thể đặt nick chính cho {acc.name}. Vui lòng cấu hình thủ công hoặc kiểm tra lại.", message_type="error")
@@ -820,7 +820,7 @@ def select_accounts_to_run(valid_accounts, ttc_cookies, ttc_username):
 
 def select_job_types():
     print_section("Chọn Loại Job Muốn Thực Hiện")
-    print_with_prefix("1. Reaction (ví dụ: Like, Love...)", message_type="info")
+    print_with_prefix("1. Reaction (VIP+VIPRE)", message_type="info")
     print_with_prefix("2. Follow", message_type="info")
     print_with_prefix("3. Share", message_type="info")
     print_with_prefix("Nhập các số cách nhau bằng '+' (ví dụ: 1+2 để chạy Reaction và Follow, để trống để chạy tất cả)", message_type="info")
@@ -1092,8 +1092,8 @@ def main():
 
                 current_account_index += 1
                 if not job_found_in_cycle and current_account.is_valid and accounts_to_run:
-                    print_with_prefix(f"\nKhông tìm thấy job nào để chạy. Chờ 30 giây rồi thử lại.", message_type="info")
-                    time.sleep(30)
+                    print_with_prefix(f"\nKhông tìm thấy job nào để chạy. Chờ 10 giây rồi thử lại.", message_type="info")
+                    time.sleep(10)
                 ttc_account_index += 1
 
         except StopToolException as e:
