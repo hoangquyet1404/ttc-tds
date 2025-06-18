@@ -129,15 +129,22 @@ def set_main_account(cookies, fb_uid):
     try:
         response = requests.post(URLS["set_main_account"], headers=headers, cookies=cookies, data=data, timeout=10)
         response.raise_for_status()
-        if response.text.strip() == "1":
+        response_text = response.text.strip()
+        if response_text == "1":
             print_with_prefix(f"Đã đặt nick chính thành công cho UID {fb_uid}", message_type="success")
             return True
+        elif response_text == "2":
+            print_with_prefix(f"Lỗi: Nick chính UID {fb_uid} chưa được cấu hình. Vui lòng cấu hình trên web.", message_type="error")
+            return False
         else:
             try:
                 result = response.json()
-                print_with_prefix(f"Lỗi khi đặt nick chính: {result.get('message', 'Phản hồi không rõ')}", message_type="error")
+                if isinstance(result, dict):
+                    print_with_prefix(f"Lỗi khi đặt nick chính: {result.get('message', 'Phản hồi không rõ')}", message_type="error")
+                else:
+                    print_with_prefix(f"Lỗi: Phản hồi đặt nick không hợp lệ: {response_text[:100]}", message_type="error")
             except json.JSONDecodeError:
-                print_with_prefix(f"Lỗi: Phản hồi đặt nick không hợp lệ: {response.text[:100]}", message_type="error")
+                print_with_prefix(f"Lỗi: Phản hồi đặt nick không hợp lệ: {response_text[:100]}", message_type="error")
             return False
     except requests.Timeout:
         print_with_prefix(f"Lỗi: Hết thời gian chờ khi đặt nick chính", message_type="error")
@@ -505,7 +512,7 @@ def countdown_display(seconds):
 
 def handle_main_account_config_error(ttc_username):
     print_with_prefix(f"\n{_Bold_}LỖI: Tài khoản TTC {ttc_username} cần cấu hình nick chính trước khi nhận xu!", message_type="error")
-    print_with_prefix(f"Vui lòng truy cập {URLS['config_ttc']} để cấu hình nick chính cho tài khoản {ttc_username}.", message_type="info")
+    #print_with_prefix(f"Vui lòng truy cập {URLS['config_ttc']} để cấu hình nick chính cho tài khoản {ttc_username}.", message_type="info")
     input(f"{CURRENT_COLOR_SCHEME[2]}{PRINT_PREFIX}Nhấn Enter sau khi hoàn tất cấu hình nick chính...{_Reset_}")
 
 def process_job(job_type, job, ttc_cookies, interactor, ttc_username):
