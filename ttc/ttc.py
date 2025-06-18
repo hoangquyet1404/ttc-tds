@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
@@ -27,6 +26,38 @@ REACTION_TYPES = {
     "HAHA": "115940658764963", "WOW": "478547315650144", "SAD": "908563459236466", "ANGRY": "444813342392137"
 }
 
+# --- Centralized URL Configuration ---
+URLS = {
+    "login_ttc": "https://tuongtaccheo.com/login.php",
+    "get_ttc_token": "https://tuongtaccheo.com/api/",
+    "get_account_info": "https://tuongtaccheo.com/logintoken.php",
+    "jobs": {
+        "reaction": [
+            {
+                "fetch": "https://tuongtaccheo.com/kiemtien/camxucvipre/getpost.php",
+                "claim": "https://tuongtaccheo.com/kiemtien/camxucvipre/nhantien.php",
+                "source": "camxucvipre"
+            },
+            {
+                "fetch": "https://tuongtaccheo.com/kiemtien/camxucvipcheo/getpost.php",
+                "claim": "https://tuongtaccheo.com/kiemtien/camxucvipcheo/nhantien.php",
+                "source": "camxucvipcheo"
+            }
+        ],
+        "follow": {
+            "fetch": "https://tuongtaccheo.com/kiemtien/subcheo/getpost.php",
+            "claim": "https://tuongtaccheo.com/kiemtien/subcheo/nhantien.php",
+            "source": "subcheo"
+        },
+        "share": {
+            "fetch": "https://tuongtaccheo.com/kiemtien/sharecheo/getpost.php",
+            "claim": "https://tuongtaccheo.com/kiemtien/sharecheo/nhantien.php",
+            "source": "sharecheo"
+        }
+    },
+    "facebook_api": "https://www.facebook.com/api/graphql/"
+}
+
 # --- Custom Exception for Stopping Tool ---
 class StopToolException(Exception):
     pass
@@ -36,11 +67,10 @@ class StopToolException(Exception):
 # ==============================================================================
 
 def login_ttc(username, password):
-    login_url = "https://tuongtaccheo.com/login.php"
     login_data = {"username": username, "password": password, "submit": "ĐĂNG NHẬP"}
     session = requests.Session()
     try:
-        response = session.post(login_url, data=login_data)
+        response = session.post(URLS["login_ttc"], data=login_data)
         response.raise_for_status()
         if "success" in response.text.lower():
             return session.cookies.get_dict(), username, password
@@ -50,7 +80,7 @@ def login_ttc(username, password):
 
 def get_ttc_token(cookies):
     try:
-        response = requests.get("https://tuongtaccheo.com/api/", cookies=cookies)
+        response = requests.get(URLS["get_ttc_token"], cookies=cookies)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
         token_input = soup.find('input', {'name': 'ttc_access_token'})
@@ -61,7 +91,7 @@ def get_ttc_token(cookies):
 
 def get_account_info(token):
     try:
-        response = requests.post("https://tuongtaccheo.com/logintoken.php", data={"access_token": token})
+        response = requests.post(URLS["get_account_info"], data={"access_token": token})
         response.raise_for_status()
         return response.json()
     except (requests.RequestException, json.JSONDecodeError):
@@ -82,16 +112,22 @@ def _fetch_jobs_from_endpoint(url, cookies):
         return []
 
 def get_vip_reaction_jobs(cookies):
-    jobs = _fetch_jobs_from_endpoint("https://tuongtaccheo.com/kiemtien/camxucvipre/getpost.php", cookies)
-    if jobs:
-        return jobs
-    return _fetch_jobs_from_endpoint("https://tuongtaccheo.com/kiemtien/camxucvipcheo/getpost.php", cookies)
+    jobs = []
+    for endpoint in URLS["jobs"]["reaction"]:
+        fetched_jobs = _fetch_jobs_from_endpoint(endpoint["fetch"], cookies)
+        if fetched_jobs:
+            jobs.extend([{"job": job, "source": endpoint["source"]} for job in fetched_jobs])
+        if jobs:
+            break  # Stop after first successful fetch
+    return jobs
 
 def get_follow_jobs(cookies):
-    return _fetch_jobs_from_endpoint("https://tuongtaccheo.com/kiemtien/subcheo/getpost.php", cookies)
+    fetched_jobs = _fetch_jobs_from_endpoint(URLS["jobs"]["follow"]["fetch"], cookies)
+    return [{"job": job, "source": URLS["jobs"]["follow"]["source"]} for job in fetched_jobs]
 
 def get_share_jobs(cookies):
-    return _fetch_jobs_from_endpoint("https://tuongtaccheo.com/kiemtien/sharecheo/getpost.php", cookies)
+    fetched_jobs = _fetch_jobs_from_endpoint(URLS["jobs"]["share"]["fetch"], cookies)
+    return [{"job": job, "source": URLS["jobs"]["share"]["source"]} for job in fetched_jobs]
 
 def _claim_ttc_reward(claim_url, cookies, data):
     headers = {
@@ -107,14 +143,17 @@ def _claim_ttc_reward(claim_url, cookies, data):
     except (requests.RequestException, json.JSONDecodeError):
         return None
 
-def claim_reaction_reward(cookies, post_id, reaction_type):
-    return _claim_ttc_reward("https://tuongtaccheo.com/kiemtien/camxucvipcheo/nhantien.php", cookies, {"id": post_id, "loaicx": reaction_type})
+def claim_reaction_reward(cookies, post_id, reaction_type, source):
+    claim_url = next(
+        endpoint["claim"] for endpoint in URLS["jobs"]["reaction"] if endpoint["source"] == source
+    )
+    return _claim_ttc_reward(claim_url, cookies, {"id": post_id, "loaicx": reaction_type})
 
 def claim_follow_reward(cookies, target_id):
-    return _claim_ttc_reward("https://tuongtaccheo.com/kiemtien/subcheo/nhantien.php", cookies, {"id": target_id})
+    return _claim_ttc_reward(URLS["jobs"]["follow"]["claim"], cookies, {"id": target_id})
 
 def claim_share_reward(cookies, post_id):
-    return _claim_ttc_reward("https://tuongtaccheo.com/kiemtien/sharecheo/nhantien.php", cookies, {"id": post_id})
+    return _claim_ttc_reward(URLS["jobs"]["share"]["claim"], cookies, {"id": post_id})
 
 # ==============================================================================
 # SECTION: FACEBOOK INTERACTION
@@ -148,11 +187,9 @@ class FacebookAccount:
             homepage_response.raise_for_status()
             homepage_text = homepage_response.text
 
-            # Check for explicit login page indicators
             if 'login.php' in str(homepage_response.url) or "Đăng nhập Facebook" in homepage_text:
                 return False
 
-            # Extract fb_dtsg
             fb_dtsg_match = re.search(r'"DTSGInitialData",\[\],{"token":"(.*?)"', homepage_text) or \
                             re.search(r'name="fb_dtsg" value="(.*?)"', homepage_text) or \
                             re.search(r'"async_get_token":"(.*?)"', homepage_text)
@@ -160,12 +197,10 @@ class FacebookAccount:
                 return False
             self.fb_dtsg = fb_dtsg_match.group(1)
 
-            # Extract user ID from response to confirm logged-in state
             user_id_match = re.search(r'"USER_ID":"(\d+)"', homepage_text)
             if not user_id_match or user_id_match.group(1) != self.uid:
                 return False
 
-            # Extract name
             name_match = re.search(r'"NAME":"(.*?)"', homepage_text)
             if name_match:
                 self.name = name_match.group(1).encode('latin1').decode('unicode-escape')
@@ -176,7 +211,6 @@ class FacebookAccount:
                     return False
                 self.name = title_tag.string
 
-            # Ensure name is non-empty and not generic
             if not self.name or self.name.strip() in ["Facebook", "Log in to Facebook"]:
                 return False
 
@@ -254,11 +288,10 @@ class FacebookInteractor:
         }
         
         try:
-            response = requests.post("https://www.facebook.com/api/graphql/", headers=self.base_headers, data=data, timeout=15)
+            response = requests.post(URLS["facebook_api"], headers=self.base_headers, data=data, timeout=15)
             is_ok, resp_json = self._handle_response(response, "reaction")
             if not is_ok:
                 return False
-            # Check for successful reaction response structure
             if resp_json and 'data' in resp_json and 'feedback_react' in resp_json['data']:
                 feedback = resp_json['data']['feedback_react'].get('feedback')
                 if feedback and 'id' in feedback and 'i18n_reaction_count' in feedback:
@@ -306,7 +339,7 @@ class FacebookInteractor:
                 "doc_id": "9757269034400464"
             }
             
-            friend_response = requests.post("https://www.facebook.com/api/graphql/", headers=friend_headers, data=friend_data)
+            friend_response = requests.post(URLS["facebook_api"], headers=friend_headers, data=friend_data)
             is_ok, friend_json = self._handle_response(friend_response, "follow")
             if is_ok and friend_json and not friend_json.get('errors'):
                 return True
@@ -332,7 +365,7 @@ class FacebookInteractor:
                 "doc_id": "9831187040342850"
             }
 
-            follow_response = requests.post("https://www.facebook.com/api/graphql/", headers=follow_headers, data=follow_data)
+            follow_response = requests.post(URLS["facebook_api"], headers=follow_headers, data=follow_data)
             is_ok, follow_json = self._handle_response(follow_response, "follow")
             return is_ok and follow_json and not follow_json.get('errors')
         
@@ -364,9 +397,9 @@ class FacebookInteractor:
         }
         
         try:
-            response = requests.post("https://www.facebook.com/api/graphql/", headers=headers, data=data, timeout=15)
+            response = requests.post(URLS["facebook_api"], headers=headers, data=data, timeout=15)
             is_ok, _ = self._handle_response(response, "share")
-            return response.status_code == 200  # Success if status is 200
+            return response.status_code == 200
         except StopToolException:
             raise
         except requests.RequestException:
@@ -388,13 +421,15 @@ def countdown_display(seconds):
     print(" " * 20, end='\r')
 
 def process_job(job_type, job, ttc_cookies, interactor):
-    if not isinstance(job, dict):
+    if not isinstance(job, dict) or "job" not in job:
         print(f"{CURRENT_COLOR_SCHEME[0]}Cảnh báo: Dữ liệu job không hợp lệ cho {job_type.upper()}: {job}{_Reset_}")
         return 'ACTION_FAILED'
 
+    actual_job = job["job"]
+    job_source = job.get("source", URLS["jobs"][job_type]["source"] if job_type != "reaction" else "camxucvipcheo")
     now = datetime.now().strftime('%H:%M:%S')
     fb_name = interactor.account.name
-    job_id_ttc = job.get('idpost') or job.get('id')
+    job_id_ttc = actual_job.get('idpost') or actual_job.get('id')
     
     fb_action_succeeded = False
     action_details = ""
@@ -402,17 +437,17 @@ def process_job(job_type, job, ttc_cookies, interactor):
     claim_args = []
 
     if job_type == "reaction":
-        post_id_fb = job.get('idfb') or job_id_ttc
-        reaction_type = job.get('loaicx')
+        post_id_fb = actual_job.get('idfb') or job_id_ttc
+        reaction_type = actual_job.get('loaicx')
         if not post_id_fb or not reaction_type:
             return 'ACTION_FAILED'
         action_details = f"REACTION:{reaction_type.upper()}|{post_id_fb}"
         fb_action_succeeded = interactor.react_to_post(post_id_fb, reaction_type)
         claim_function = claim_reaction_reward
-        claim_args = [ttc_cookies, job_id_ttc, reaction_type]
+        claim_args = [ttc_cookies, job_id_ttc, reaction_type, job_source]
     
     elif job_type == "follow":
-        target_id_fb = job.get('idpost') or job.get('id')
+        target_id_fb = actual_job.get('idpost') or actual_job.get('id')
         if not target_id_fb or not str(target_id_fb).isdigit():
             print(f"{CURRENT_COLOR_SCHEME[0]}Lỗi: ID người dùng không hợp lệ: {target_id_fb}{_Reset_}")
             return 'ACTION_FAILED'
@@ -422,7 +457,7 @@ def process_job(job_type, job, ttc_cookies, interactor):
         claim_args = [ttc_cookies, target_id_fb]
         
     elif job_type == "share":
-        post_id_fb = job.get('link', '').split('/posts/')[1].split('?')[0].strip('/') if '/posts/' in job.get('link','') else job_id_ttc
+        post_id_fb = actual_job.get('link', '').split('/posts/')[1].split('?')[0].strip('/') if '/posts/' in actual_job.get('link','') else job_id_ttc
         action_details = f"SHARE|{post_id_fb}"
         fb_action_succeeded = interactor.share_post(post_id_fb)
         claim_function = claim_share_reward
@@ -432,7 +467,7 @@ def process_job(job_type, job, ttc_cookies, interactor):
         return 'LOGGED_OUT'
 
     if fb_action_succeeded:
-        time.sleep(2)  # Wait 2 seconds for all job types
+        time.sleep(2)
         result = claim_function(*claim_args)
 
         if result and 'mess' in result:
@@ -440,6 +475,7 @@ def process_job(job_type, job, ttc_cookies, interactor):
             print(f"{CURRENT_COLOR_SCHEME[1]}[{now}] {fb_name}|{action_details}|Thành công: +{xu} xu{_Reset_}")
             delay = random.uniform(*settings['DELAY_BETWEEN_JOBS'])
             print(f"{CURRENT_COLOR_SCHEME[2]}Chờ {delay:.2f}s trước khi chạy job tiếp theo...{_Reset_}")
+            time.sleep(delay)
             return 'SUCCESS'
         else:
             print(f"{CURRENT_COLOR_SCHEME[2]}[{now}] {fb_name}|{action_details}|Nhận thưởng thất bại.{_Reset_}")
@@ -454,7 +490,6 @@ def process_job(job_type, job, ttc_cookies, interactor):
 # ==============================================================================
 
 def get_random_color_scheme():
-    """Tạo bộ màu ngẫu nhiên hài hòa"""
     color_schemes = [
         ['\033[38;5;33m', '\033[38;5;39m', '\033[38;5;45m', '\033[38;5;51m'],
         ['\033[38;5;196m', '\033[38;5;202m', '\033[38;5;208m', '\033[38;5;214m'],
@@ -472,7 +507,6 @@ def get_random_color_scheme():
 def print_banner():
     global CURRENT_COLOR_SCHEME
     os.system('cls' if os.name == 'nt' else 'clear')
-    color_schemes = [['\033[38;5;196m', '\033[38;5;46m', '\033[38;5;226m', '\033[38;5;21m'], ['\033[38;5;129m', '\033[38;5;82m', '\033[38;5;214m', '\033[38;5;51m']]
     CURRENT_COLOR_SCHEME = get_random_color_scheme()
     colors = CURRENT_COLOR_SCHEME
     print(f"""
@@ -483,7 +517,7 @@ def print_banner():
 {colors[1]}██║  ██║      {colors[0]}   ██║   ╚██████╔╝╚██████╔╝███████╗
 {colors[0]}╚═╝  ╚═╝         ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝{_Reset_}
 """)
-    print(f"{colors[2]}                Copyright © H-Tool 2025 | Version 5.2 (Final){_Reset_}\n")
+    print(f"{colors[2]}                Copyright © H-Tool 2025 | Version 4.0{_Reset_}\n")
 
 def print_section(title):
     print(f"\n{_Bold_}{CURRENT_COLOR_SCHEME[3]}>> {title.upper()} <<{_Reset_}")
@@ -662,13 +696,13 @@ def main():
             ttc_accounts_to_use = [(username, password, ttc_cookies)]
         else:
             print(f"{CURRENT_COLOR_SCHEME[0]}Đăng nhập TTC thất bại. Vui lòng thử lại sau.{_Reset_}")
-            return  # Exit only if TTC login fails, as TTC account is critical
+            return
     
     elif account_source == '2':
         saved_accounts = load_ttc_accounts()
         if not saved_accounts:
             print(f"{CURRENT_COLOR_SCHEME[0]}Không tìm thấy tài khoản TTC đã lưu trong {ACCOUNT_FILE}. Vui lòng nhập tài khoản mới.{_Reset_}")
-            return  # Exit if no TTC accounts are available
+            return
         
         selected_accounts = select_ttc_accounts(saved_accounts)
         if not selected_accounts:
@@ -689,7 +723,7 @@ def main():
         print(f"{CURRENT_COLOR_SCHEME[0]}Không có tài khoản TTC nào hợp lệ để chạy. Vui lòng thử lại sau.{_Reset_}")
         return
 
-    while True:  # Loop to keep tool running even if no valid FB accounts
+    while True:
         raw_cookies = get_fb_cookies_menu()
         if not raw_cookies:
             retry = input(f"{CURRENT_COLOR_SCHEME[0]}Không có cookie Facebook nào được cung cấp. Thử lại? (y/n): {_Reset_}").lower()
@@ -727,7 +761,7 @@ def main():
             continue
 
         print(f"{CURRENT_COLOR_SCHEME[1]}Sẵn sàng chạy với {len(accounts_to_run)} tài khoản Facebook.{_Reset_}")
-        break  # Exit loop once valid accounts are selected
+        break
 
     global settings
     settings = setup_settings()
@@ -822,11 +856,10 @@ def main():
             
             current_account_index += 1
             if not job_found_in_cycle and current_account.is_valid and accounts_to_run:
-                print(f"\n{CURRENT_COLOR_SCHEME[2]}Không tìm thấy job nào. Chờ 30 giây rồi thử lại...{_Reset_}")
-                time.sleep(30)
+                print(f"\n{CURRENT_COLOR_SCHEME[2]}Không tìm thấy job nào. Chờ 10 giây rồi thử lại...{_Reset_}")
+                time.sleep(10)
             ttc_account_index += 1
 
-            # If no valid FB accounts remain, prompt to re-enter cookies
             if not accounts_to_run:
                 print(f"{CURRENT_COLOR_SCHEME[0]}Cảnh báo: Tất cả tài khoản Facebook đã bị logout hoặc không hợp lệ.{_Reset_}")
                 retry = input(f"{CURRENT_COLOR_SCHEME[2]}Thử lại với cookie mới? (y/n): {_Reset_}").lower()
@@ -834,7 +867,7 @@ def main():
                     current_account_index = 0
                     counters = {'per_account': {}, 'since_break': 0}
                     blocked_jobs_per_account = {}
-                    break  # Break inner loop to re-enter cookies
+                    break
                 else:
                     print(f"{CURRENT_COLOR_SCHEME[0]}Không có tài khoản Facebook để tiếp tục. Thoát tool.{_Reset_}")
                     return
