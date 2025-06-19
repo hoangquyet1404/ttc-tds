@@ -543,7 +543,7 @@ def process_job(job_type, job, ttc_cookies, interactor, ttc_username):
             if not post_id_fb or not reaction_type:
                 print_with_prefix(f"Lỗi: Thiếu post_id hoặc reaction_type cho job REACTION: {actual_job}", message_type="error")
                 return 'ACTION_FAILED'
-            action_details = f"REACTION:{reaction_type.upper()}|{post_id_fb}"
+            action_details = f"REACTION:{reaction_type.upper()} | {post_id_fb}"
             fb_action_succeeded = interactor.react_to_post(post_id_fb, reaction_type)
             claim_function = claim_reaction_reward
             claim_args = [ttc_cookies, job_id_ttc, reaction_type, job_source]
@@ -553,7 +553,7 @@ def process_job(job_type, job, ttc_cookies, interactor, ttc_username):
             if not target_id_fb or not str(target_id_fb).isdigit():
                 print_with_prefix(f"Lỗi: ID người dùng không hợp lệ cho job FOLLOW: {target_id_fb}", message_type="error")
                 return 'ACTION_FAILED'
-            action_details = f"FOLLOW|{target_id_fb}"
+            action_details = f"FOLLOW | {target_id_fb}"
             fb_action_succeeded = interactor.follow_user(target_id_fb)
             claim_function = claim_follow_reward
             claim_args = [ttc_cookies, target_id_fb]
@@ -563,7 +563,7 @@ def process_job(job_type, job, ttc_cookies, interactor, ttc_username):
             if not post_id_fb:
                 print_with_prefix(f"Lỗi: Không thể lấy post_id cho job SHARE: {actual_job}", message_type="error")
                 return 'ACTION_FAILED'
-            action_details = f"SHARE|{post_id_fb}"
+            action_details = f"SHARE | {post_id_fb}"
             fb_action_succeeded = interactor.share_post(post_id_fb)
             claim_function = claim_share_reward
             claim_args = [ttc_cookies, job_id_ttc]
@@ -600,7 +600,7 @@ def process_job(job_type, job, ttc_cookies, interactor, ttc_username):
 
                 if result.get('mess'):
                     xu = extract_xu_from_message(result.get('mess'))
-                    print_with_prefix(f"[{now}] {fb_name}|{action_details}|Thành công: +{xu} xu", message_type="success")
+                    print_with_prefix(f"[{now}] | {fb_name} | {action_details} | +{xu} xu", message_type="success")
                     delay = random.uniform(*settings['DELAY_BETWEEN_JOBS'])
                     for i in range(int(delay), -1, -1):
                         sys.stdout.write(f"\r Đợi {i}s để chạy job tiếp theo...   ")
@@ -608,23 +608,22 @@ def process_job(job_type, job, ttc_cookies, interactor, ttc_username):
                         time.sleep(1)
                     sys.stdout.write('\r' + ' ' * 50 + '\r')
                     sys.stdout.flush()
-                    #print_with_prefix("Tiếp tục gửi request tiếp theo...", message_type="info")
                     time.sleep(delay)
                     return 'SUCCESS'
                 else:
-                    print_with_prefix(f"[{now}] {fb_name}|{action_details}|Nhận thưởng thất bại: {result}", message_type="error")
+                    print_with_prefix(f"[{now}] | {fb_name} | {action_details} | Nhận thưởng thất bại: {result}", message_type="error")
                     return 'ACTION_FAILED'
             else:
-                print_with_prefix(f"[{now}] {fb_name}|{action_details}|Nhận thưởng thất bại: Phản hồi không hợp lệ {result}", message_type="error")
+                print_with_prefix(f"[{now}] | {fb_name} | {action_details} | Nhận thưởng thất bại: Phản hồi không hợp lệ {result}", message_type="error")
                 return 'ACTION_FAILED'
 
         else:
-            print_with_prefix(f"[{now}] {fb_name}|{action_details}|Hành động FB thất bại.", message_type="error")
+            print_with_prefix(f"[{now}] | {fb_name} | {action_details} | Hành động FB thất bại.", message_type="error")
             return 'ACTION_FAILED'
 
     except StopToolException as e:
         if str(e) == "Account logged out":
-            print_with_prefix(f"Tài khoản {fb_name} đã bị logout.", message_type="error")
+            # print_with_prefix(f" ", message_type="error")
             return 'LOGGED_OUT'
         raise
 
