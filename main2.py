@@ -208,7 +208,7 @@ def get_bypass_link():
     try:
         key = generate_random_key()
         target_url = f"http://sublikevip.site/index.html?key={key}"
-        shorten_api = f"https://link4m.co/api-shorten/v2?api=672ed4b6da03836a1b72eb7a&url={target_url}"
+        shorten_api = f"https://yeumoney.com/QL_api.php?token=703371951353e080dde13a50207e2ff7c3fc31fe88f765c17fa11d9fd1046528&format=json&url={target_url}"
         
         shorten_response = requests.get(shorten_api, timeout=10)
         if shorten_response.status_code == 200:
