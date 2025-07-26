@@ -13,7 +13,7 @@ from time import sleep
 
 API_TOKEN = "703371951353e080dde13a50207e2ff7c3fc31fe88f765c17fa11d9fd1046528"
 API_YEUMONEY = "https://yeumoney.com/QL_api.php"
-API_KEY_SERVER = "https://cnc.subhatde.id.vn/api"
+API_KEY_SERVER = "http://103.149.252.133:2000/api"
 API_KEY_PAGE = "http://sublikevip.site/key.html"
 API_NOTIFICATIONS = "https://cnc.subhatde.id.vn/apis/thongbao"
 DEFAULT_KEY = "joonwuydeptrai"
